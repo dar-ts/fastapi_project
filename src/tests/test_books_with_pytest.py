@@ -22,12 +22,14 @@ async def test_create_book(async_client):
     "password": "password123"
 }
     response= await async_client.post("/api/v1/sellers/", json=seller)
-    data = {"title": "Wrong Code", "author": "Robert Martin", "pages": 104, "year": 2007, "seller_id": 1}
+    seller_id = response.json()["id"]
+    data = {"title": "Wrong Code", "author": "Robert Martin", "pages": 104, "year": 2007, "seller_id": seller_id}
     response = await async_client.post("/api/v1/books/", json=data)
 
     assert response.status_code == status.HTTP_201_CREATED
 
     result_data = response.json()
+  
 
     assert result_data == {
         "id": 1,
@@ -35,7 +37,7 @@ async def test_create_book(async_client):
         "author": "Robert Martin",
         "count_pages": 104,
         "year": 2007,
-        "seller_id":1
+        "seller_id": seller_id
     }
 
 
@@ -51,9 +53,14 @@ async def test_get_books(db_session, async_client):
     "email": "popov@yandex.ru",
     "password": "password123"
 }
+    
+ 
+    response = await async_client.get("/api/v1/books/")
+    start_len = len(response.json()["books"])
     response= await async_client.post("/api/v1/sellers/", json=seller)
-    book = books.Book(author="Pushkin", title="Eugeny Onegin", year=2001, count_pages=104, seller_id = 1)
-    book_2 = books.Book(author="Lermontov", title="Mziri", year=1997, count_pages=104, seller_id = 1)
+    seller_id = response.json()["id"]
+    book = books.Book(author="Pushkin", title="Eugeny Onegin", year=2001, count_pages=104, seller_id = seller_id)
+    book_2 = books.Book(author="Lermontov", title="Mziri", year=1997, count_pages=104, seller_id = seller_id)
 
     db_session.add_all([book, book_2])
     await db_session.flush()
@@ -62,13 +69,13 @@ async def test_get_books(db_session, async_client):
 
     assert response.status_code == status.HTTP_200_OK
 
-    assert len(response.json()["books"]) == 2  # Опасный паттерн! Если в БД есть данные, то тест упадет
+    assert len(response.json()["books"]) == start_len + 2  # Опасный паттерн! Если в БД есть данные, то тест упадет
 
     # Проверяем интерфейс ответа, на который у нас есть контракт.
     assert response.json() == {
         "books": [
-            {"title": "Eugeny Onegin", "author": "Pushkin", "year": 2001, "id": book.id, "count_pages": 104, "seller_id" : 1},
-            {"title": "Mziri", "author": "Lermontov", "year": 1997, "id": book_2.id, "count_pages": 104, "seller_id" : 1},
+            {"title": "Eugeny Onegin", "author": "Pushkin", "year": 2001, "id": book.id, "count_pages": 104, "seller_id" : seller_id},
+            {"title": "Mziri", "author": "Lermontov", "year": 1997, "id": book_2.id, "count_pages": 104, "seller_id" : seller_id},
         ]
     }
 
@@ -84,9 +91,11 @@ async def test_get_single_book(db_session, async_client):
     "email": "popov@yandex.ru",
     "password": "password123"
 }
+    
     response= await async_client.post("/api/v1/sellers/", json=seller)
-    book = books.Book(author="Pushkin", title="Eugeny Onegin", year=2001, count_pages=104, seller_id = 1)
-    book_2 = books.Book(author="Lermontov", title="Mziri", year=1997, count_pages=104, seller_id = 1)
+    seller_id = response.json()["id"]
+    book = books.Book(author="Pushkin", title="Eugeny Onegin", year=2001, count_pages=104, seller_id = seller_id)
+    book_2 = books.Book(author="Lermontov", title="Mziri", year=1997, count_pages=104, seller_id = seller_id)
 
     db_session.add_all([book, book_2])
     await db_session.flush()
@@ -102,7 +111,7 @@ async def test_get_single_book(db_session, async_client):
         "year": 2001,
         "count_pages": 104,
         "id": book.id,
-        "seller_id": 1
+        "seller_id": seller_id
     }
 
 
@@ -117,8 +126,12 @@ async def test_delete_book(db_session, async_client):
     "email": "popov@yandex.ru",
     "password": "password123"
 }
+    
+    response = await async_client.get("/api/v1/books/")
+    start_len = len(response.json()["books"])
     response= await async_client.post("/api/v1/sellers/", json=seller)
-    book = books.Book(author="Pushkin", title="Eugeny Onegin", year=2001, count_pages=104, seller_id = 1)
+    seller_id = response.json()["id"]
+    book = books.Book(author="Pushkin", title="Eugeny Onegin", year=2001, count_pages=104, seller_id = seller_id)
 
     db_session.add(book)
     await db_session.flush()
@@ -130,7 +143,7 @@ async def test_delete_book(db_session, async_client):
 
     all_books = await db_session.execute(select(books.Book))
     res = all_books.scalars().all()
-    assert len(res) == 0
+    assert len(res) == start_len
 
 
 # Тест на ручку обновления книги
@@ -145,14 +158,15 @@ async def test_update_book(db_session, async_client):
     "password": "password123"
 }
     response= await async_client.post("/api/v1/sellers/", json=seller)
-    book = books.Book(author="Pushkin", title="Eugeny Onegin", year=2001, count_pages=104, seller_id = 1)
+    seller_id = response.json()["id"]
+    book = books.Book(author="Pushkin", title="Eugeny Onegin", year=2001, count_pages=104, seller_id = seller_id)
 
     db_session.add(book)
     await db_session.flush()
 
     response = await async_client.put(
         f"/api/v1/books/{book.id}",
-        json={"title": "Mziri", "author": "Lermontov", "count_pages": 100, "year": 2007, "id": book.id, "seller_id": 1},
+        json={"title": "Mziri", "author": "Lermontov", "count_pages": 100, "year": 2007, "id": book.id, "seller_id": seller_id},
     )
 
     assert response.status_code == status.HTTP_200_OK

@@ -29,11 +29,13 @@ async def test_register_seller(async_client):
 @pytest.mark.asyncio
 async def test_get_all_sellers(db_session, async_client):
 
+    response = await async_client.get("/api/v1/sellers/")
+    start_len = len(response.json()["sellers"])
     seller = sellers.Seller(first_name= "Ivan",
         last_name ="Popov",
         email = "popov@yandex.ru",
         password =" password123")
-    seller_2 = sellers.Seller(first_name=  "Maria",
+    seller_2 = sellers.Seller(first_name = "Maria",
         last_name = "Ivanova",
         email = "ivanova@mail.ru",
         password =" password456")
@@ -47,24 +49,25 @@ async def test_get_all_sellers(db_session, async_client):
 
     result_data = response.json()
     assert "sellers" in result_data
-    assert len(result_data["sellers"]) == 2
+    assert len(result_data["sellers"]) == start_len + 2
 
-    expected_result = [
-        {
+    expected_result1 = {
             "first_name": "Maria",
             "last_name": "Ivanova",
             "email": "ivanova@mail.ru",
             "id": seller_2.id
-        },
-        {
+        }
+    expected_result2 ={
             "first_name": "Ivan",
             "last_name": "Popov",
             "email": "popov@yandex.ru",
             "id": seller.id
         }
-    ]
+    
 
-    assert result_data["sellers"] == expected_result
+    assert expected_result1 in result_data["sellers"] 
+    assert expected_result2 in result_data["sellers"] 
+
 
 @pytest.mark.asyncio
 async def test_get_seller(db_session, async_client):
@@ -76,7 +79,7 @@ async def test_get_seller(db_session, async_client):
     }
     response = await async_client.post("/api/v1/sellers/", json=seller_data)
     seller_id = response.json()["id"]
-    book = books.Book(author="Pushkin", title="Eugeny Onegin", year=2001, count_pages=104, seller_id = 1)
+    book = books.Book(author="Pushkin", title="Eugeny Onegin", year=2001, count_pages=104, seller_id = seller_id)
 
     db_session.add(book)
     await db_session.flush()
@@ -92,12 +95,12 @@ async def test_get_seller(db_session, async_client):
     assert result_data["last_name"] == "Popov"
     assert result_data["email"] == "popov@yandex.ru"
     assert result_data["books"] ==[{
-        "id": 1,
+        "id": book.id,
         "title": "Eugeny Onegin",
         "author": "Pushkin",
         "count_pages": 104,
         "year": 2001,
-        "seller_id":1
+        "seller_id": seller_id
     }
 ]
 
@@ -139,6 +142,12 @@ async def test_delete_seller(db_session, async_client):
     "email": "popov@yandex.ru",
     "password": "password123"
 }
+    
+    all_sellers = await db_session.execute(select(sellers.Seller))
+    start_sellers = len(all_sellers.unique().scalars().all()) 
+
+    all_books = await db_session.execute(select(books.Book))
+    start_books =  len(all_books.scalars().all())
     response= await async_client.post("/api/v1/sellers/", json=seller)
     seller_id = response.json()["id"]
     book = books.Book(author="Pushkin", title="Eugeny Onegin", year=2001, count_pages=104, seller_id = seller_id)
@@ -152,8 +161,8 @@ async def test_delete_seller(db_session, async_client):
     assert response.status_code == status.HTTP_204_NO_CONTENT
     await db_session.flush()
     all_sellers = await db_session.execute(select(sellers.Seller))
-    assert len(all_sellers.unique().scalars().all()) == 0
+    assert len(all_sellers.unique().scalars().all()) == start_sellers
 
     all_books = await db_session.execute(select(books.Book))
-    assert len(all_books.scalars().all()) == 0
+    assert len(all_books.scalars().all()) == start_books
 
