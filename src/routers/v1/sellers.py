@@ -1,12 +1,13 @@
 from typing import Annotated, List
 
-from fastapi import APIRouter, Depends, Response, status
+from fastapi import APIRouter, Depends, Response, status, HTTPException
 from icecream import ic
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from src.configurations.database import get_async_session
 from src.models.sellers import Seller
+from .token import get_current_user
 from src.schemas import IncomingSeller, ReturnedSeller, ReturnedSellerBooks, ReturnedAllSellers
 
 sellers_router = APIRouter(tags=["sellers"], prefix="/sellers")
@@ -37,11 +38,19 @@ async def get_all_sellers(session: DBSession):
     return {"sellers": sellers}
 
 
-# Ручка для получения данных о конкретном продавце (без пароля) с книгами
+# Ручка для получения данных о конкретном продавце (без пароля) с книгами c авторизацией
+
 @sellers_router.get("/{seller_id}", response_model=ReturnedSellerBooks)
-async def get_seller(seller_id: int, session: DBSession):
+async def get_seller(seller_id: int,session: DBSession, current_user: Seller = Depends(get_current_user)):
+    if current_user.id != seller_id:
+        raise HTTPException(
+            status_code=403,
+            detail="You are not authorized to access this seller's information",
+        )
+
     seller = await session.get(Seller, seller_id)
     return seller
+
    
 
 # Ручка для обновления данных о продавце (без обновления книг и пароля)

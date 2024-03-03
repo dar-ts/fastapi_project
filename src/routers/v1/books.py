@@ -1,6 +1,6 @@
 from typing import Annotated
 
-from fastapi import APIRouter, Depends, Response, status
+from fastapi import APIRouter, Depends, Response, status, HTTPException
 from icecream import ic
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -8,6 +8,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from src.configurations.database import get_async_session
 from src.models.books import Book
 from src.models.sellers import Seller
+from .token import get_current_user
 from src.schemas import IncomingBook, ReturnedAllBooks, ReturnedBook
 
 books_router = APIRouter(tags=["books"], prefix="/books")
@@ -18,7 +19,14 @@ DBSession = Annotated[AsyncSession, Depends(get_async_session)]
 
 # Ручка для создания записи о книге в БД. Возвращает созданную книгу.
 @books_router.post("/", response_model=ReturnedBook, status_code=status.HTTP_201_CREATED)  # Прописываем модель ответа
-async def create_book(book: IncomingBook, session: DBSession): 
+async def create_book(book: IncomingBook, session: DBSession, current_user: Seller = Depends(get_current_user)): 
+    if current_user.id != book.seller_id:
+        raise HTTPException(
+            status_code=403,
+            detail="You are not authorized to create a book",
+        )
+
+
     new_book = Book(
         title=book.title,
         author=book.author,
@@ -67,9 +75,14 @@ async def delete_book(book_id: int, session: DBSession):
 
 # Ручка для обновления данных о книге
 @books_router.put("/{book_id}")
-async def update_book(book_id: int, new_data: ReturnedBook, session: DBSession):
-    # Оператор "морж", позволяющий одновременно и присвоить значение и проверить его.
-    if updated_book := await session.get(Book, book_id):
+async def update_book(book_id: int, new_data: ReturnedBook, session: DBSession, current_user: Seller = Depends(get_current_user)):
+    updated_book = await session.get(Book, book_id)
+    if current_user.id != updated_book.seller_id:
+        raise HTTPException(
+            status_code=403,
+            detail="You are not authorized to update information for this book",
+        )
+    if updated_book:
         updated_book.author = new_data.author
         updated_book.title = new_data.title
         updated_book.year = new_data.year

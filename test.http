@@ -7,6 +7,7 @@
 # Создаем книгу
 POST http://localhost:8000/api/v1/books/ HTTP/1.1
 content-type: application/json
+Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiJwb3BvdkB5YW5kZXgucnUifQ.mdV2sCLiCJR1fCA9ikzbpPUJOCE0OnMEoABvL2FYqGM
 
 {
     "title": "Wrong Code",
@@ -31,13 +32,16 @@ GET http://localhost:8000/api/v1/books/2 HTTP/1.1
 # Обновляем поля в данных о книге
 PUT http://localhost:8000/api/v1/books/1 HTTP/1.1
 content-type: application/json
+Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiJwb3BvdkB5YW5kZXgucnUifQ.mdV2sCLiCJR1fCA9ikzbpPUJOCE0OnMEoABvL2FYqGM
+
 
 {
     "title": "Clean Code",
     "author": "Robert Martin",
     "count_pages": 10,
     "year": 2007,
-    "id": 0
+    "id": 1,
+    "seller_id": 1
 }
 
 ###
@@ -66,7 +70,7 @@ GET http://localhost:8000/api/v1/sellers/ HTTP/1.1
 
 #Получение данных о продавце по его id
 GET http://localhost:8000/api/v1/sellers/1 HTTP/1.1
-
+Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiJwb3BvdkB5YW5kZXgucnUifQ.mdV2sCLiCJR1fCA9ikzbpPUJOCE0OnMEoABvL2FYqGM
 ###
 
 #Обновление данных о продавце
@@ -85,3 +89,9 @@ content-type: application/json
 DELETE http://localhost:8000/api/v1/sellers/1 HTTP/1.1
 ###
 
+#Получение токена
+POST http://localhost:8000/api/v1/token/ HTTP/1.1
+content-type: application/x-www-form-urlencoded
+
+username=popov%40yandex.ru&password=password123
+####
